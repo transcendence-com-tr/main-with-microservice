@@ -75,21 +75,24 @@ function notification(state, title, message, closeable = true)
     document.getElementsByClassName("modal-footer")[0].style.display = closeable ? "block" : "none";
 }
 
-function notificationTemplate(title, template, closeable = true)
+function notificationTemplate(title, template, data = null)
 {
-    template = "pages/modals/" + template + ".html?v=250";
+    template = "pages/modals/" + template + ".html?v=345";
     document.getElementById('alertModalLabel').textContent = title;
-    fetch(template).then(response => response.text()).then(data => {
-        document.getElementById('alertModalMessage').innerHTML = data;
+    fetch(template).then(response => response.text()).then(item => {
+        if (data)
+        {
+            Object.entries(data).forEach(([key, value]) => {
+                item = item.replaceAll("{" + key + "}", value);
+            });
+        }
+        document.getElementById('alertModalMessage').innerHTML = item;
     });
     document.getElementById("alertModal").classList.add("show");
     document.getElementById("main").style.opacity = "0.2";
     document.getElementById("alertModal").style.zIndex = "9999";
-    document.getElementsByClassName("modal-footer")[0].style.display = closeable ? "block" : "none";
+    document.getElementsByClassName("modal-footer")[0].style.display = "none";
 }
-// notificationTemplate("Verify Your Account", "2fa", false); || Verify Your Account
-// notificationTemplate('Change Information', 'change-information', false) || Change Information
-// notificationTemplate('42 Connect', '42-connect', false) || Change Password
 
 function closeModal()
 {

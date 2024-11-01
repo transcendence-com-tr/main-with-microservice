@@ -13,6 +13,4 @@ urlpatterns = [
     path('2fa/verify/', views.two_factor_verify, name='two_factor_verify'),
     path('password-forgot/', views.password_forgot, name='password_forgot'),
     path('password-reset/', views.password_reset, name='password_reset'),
-    ##path('logout/', views.logout, name='logout'),
-    ##path('intra/', views.intra, name='intra'),
 ]

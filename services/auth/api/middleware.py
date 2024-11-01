@@ -41,7 +41,6 @@ class JWTAuthenticationMiddleware:
             reverse('login'),  # Kendi URL adınıza göre güncelleyin
             reverse('login_42'),  # Kendi URL adınıza göre güncelleyin
             reverse('login_42_callback'),  # Kendi URL adınıza göre güncelleyin
-            '/favicon.ico',  # Favicon istekleri
         ]
 
         # `startswith` ile URL'in herhangi bir alt yolunu da dahil etmek için kontrol
@@ -52,20 +51,16 @@ class JWTAuthenticationMiddleware:
         token = request.headers.get('Authorization')
         if token is None or not token.startswith('Bearer '):
             return error_response(
-                "Token Error",
                 "Unauthorized Token",
+                "Token not provided or invalid",
                 "error",
                 401,
                 None,
-                {
-                    'token': {
-                        'required': 'Token not provided or invalid'
-                    }
-                }
+                None,
+                False
             )
         token = token.split(' ')[1]
         try:
-            # Token'ı decode et
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
             user_id = payload.get('user_id')
             from .models import User
@@ -74,14 +69,13 @@ class JWTAuthenticationMiddleware:
             request.user.password_code = payload.get('password_code')
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             return error_response(
-                "Token Error",
                 "Unauthorized Token",
+                "Token expired or invalid",
                 "error",
                 401,
                 None,
-                {
-                    'token': {'required': 'Token expired or invalid'}
-                }
+                None,
+                False
             )
 
         response = self.get_response(request)

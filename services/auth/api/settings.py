@@ -156,8 +156,8 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.AnonRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '10/minute',  # Kimlik doğrulaması yapılmamış kullanıcılar için
-        'user': '1000/day'    # Kimlik doğrulaması yapılmış kullanıcılar için
+        'anon': '100/second',
+        'user': '100/second'
     }
 }
 

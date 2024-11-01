@@ -11,6 +11,7 @@ from django.core.mail import send_mail
 import requests
 import random
 import time
+from django.utils.crypto import get_random_string
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -86,15 +87,17 @@ def me(request):
         "user": {
             "id": request.user.id,
             "username": request.user.username,
-            "email": request.user.email
-        }}, None, True, "#/home")
+            "email": request.user.email,
+            "username_42": request.user.username_42,
+            "email_42": request.user.email_42,
+        }}, None, None)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def login_42(request):
     return success_response("42 Login redirection", "You are redirecting to 42 login page", "success",
                             200, None, None, True,
-                            "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-75f1e5c8c124aef4f03916acb167045d1e3df9603c571a9695b8aa116701abbb&redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fapi%2Fauth%2F42%2Fcallback%2F&response_type=code")
+                            "https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-75f1e5c8c124aef4f03916acb167045d1e3df9603c571a9695b8aa116701abbb&redirect_uri=http%3A%2F%2Flocalhost%2F&response_type=code")
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -104,9 +107,9 @@ def login_42_callback(request):
     response = requests.post('https://api.intra.42.fr/oauth/token', data={
         'grant_type': 'authorization_code',
         'client_id': 'u-s4t2ud-75f1e5c8c124aef4f03916acb167045d1e3df9603c571a9695b8aa116701abbb',
-        'client_secret': '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',
+        'client_secret': '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',
         'code': code,
-        'redirect_uri': 'http://localhost:8000/api/auth/42/callback/'
+        'redirect_uri': 'http://localhost/'
     })
     data = response.json()
     print(data)
@@ -115,7 +118,6 @@ def login_42_callback(request):
         'Authorization': f'Bearer {access_token}'
     }).json()
 
-    ## bir daha intra ile girmek isterse kayıt etmeye gerek yok başarılı token döndür
     if (User.objects.filter(username_42=user_42.get('login')).exists()):
         user_id = User.objects.get(username_42=user_42.get('login')).id
         token = jwt.encode({
@@ -128,7 +130,7 @@ def login_42_callback(request):
         user = User.objects.create(
             username_42=user_42.get('login'),
             email_42=user_42.get('email'),
-            password=make_password(),
+            password=make_password(get_random_string(length=32)),
         )
         user.save()
         token = jwt.encode({
@@ -151,17 +153,17 @@ def auth(request):
         if not status:
             errors = validator.get_message()
             print(errors)
-            return error_response("Update Error", "An error was encountered while updating", "error", 400, None, errors)
+            return error_response("Update Error", "An error was encountered while updating", "error", 400, None, errors, False)
     
     if not email and not username:
-        return error_response("Update Error", "At least one field must be provided", "error", 400, None, None, True, None)
+        return error_response("Update Error", "At least one field must be provided", "error", 400, None, None, False, None)
 
     validator  = UpdateUserValidator({'email': email , 'username': username})
     status = validator.validate()
     if status:
             errors = check_register_user(email, username)
             if errors:
-                return error_response("Update Error", "An error was encountered while updating", "error", 400, None, errors)
+                return error_response("Update Error", "An error was encountered while updating", "error", 400, None, errors, False)
 
             if email and not User.objects.filter(email=email).exists():
                 User.objects.filter(email=request.user.email).update(email=email)
@@ -177,7 +179,7 @@ def auth(request):
     else:
         errors = validator.get_message()
         print(errors)
-        return error_response("Update Error", "An error was encountered while updating", "error", 400, None, errors)
+        return error_response("Update Error", "An error was encountered while updating", "error", 400, None, errors, False)
 
 
 @api_view(['POST'])
@@ -304,14 +306,4 @@ def password_reset(request):
         print(errors)
         return error_response("Password Reset Error", "An error was encountered while resetting password", "error", 400, None, errors)
 
-
-
-
-## dönen error mesajı:
-## {'lastname': {'required': 'lastname field is required'}}
-
-## KONTROL EDİLECEKLER; 
-## USERNAME UNIQUE OLMALI | sadece küçük harf ve rakam olabilir | arada boşluk olmayacak
-## input alanlar maximum sınırı koy 
-## slash sorunu olabilir !
 

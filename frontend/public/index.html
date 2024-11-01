@@ -8,7 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
-    <link href="assets/css/style.css?v=250" rel="stylesheet"/>
+    <link href="assets/css/style.css?v=345" rel="stylesheet"/>
 </head>
 <body>
 <div class="row d-flex justify-content-center m-2 align-items-center p-2" id="body">
@@ -30,12 +30,11 @@
         </div>
     </div>
 </div>
-<script src="assets/js/library/utils.js?v=250"></script>
-<script src="assets/js/library/request.js?v=250"></script>
-<script src="assets/js/library/router.js?v=250"></script>
+<script src="assets/js/library/utils.js?v=345"></script>
+<script src="assets/js/library/request.js?v=345"></script>
+<script src="assets/js/library/router.js?v=345"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script>
     Router.add("#/login", "login.html", "Login Page");
     Router.add("#/register", "register.html", "Register Page");
@@ -45,58 +44,8 @@
     Router.add("#/game", "game.html", "Game Page");
     Router.add("#/chat", "chat.html", "Chat Page");
     Router.add("#/leaderboard", "leaderboard.html", "Leaderboard Page");
+    Router.add("#/logout", "logout.html", "Logout Page");
     Router.navigate();
-</script>
-<script>
-    document.addEventListener('submit', async function(event) {
-        if (event.target.tagName === 'FORM') {
-            event.preventDefault();
-
-            const form = event.target;
-            const formData = new FormData(form);
-            let action = new URL(form.action).pathname;
-            let data = {};
-
-            action = action[0] === '/' ? action.substring(1) : action;
-
-            // FormData'yı bir nesneye dönüştür
-            for (const [key, value] of formData.entries()) {
-                data[key] = value; // Anahtar-değer çiftini nesneye ekle
-            }
-
-            let response = await request(form.method, action, data); // Tek nesneyi gönder
-
-            if (response.message_view) {
-                notification(response.state, response.title, response.message);
-            }
-
-            if (response.redirect) {
-                window.location.href = response.redirect;
-            }
-
-            // Hata mesajlarını temizle
-            var paras = document.getElementsByClassName('errors');
-
-            while (paras[0]) {
-                paras[0].parentNode.removeChild(paras[0]);
-            }
-
-            // Hata mesajlarını göster
-            for (const field in response.error) {
-                if (response.error.hasOwnProperty(field)) {
-                    const errorMessages = response.error[field];
-                    for (const errorType in errorMessages) {
-                        if (errorMessages.hasOwnProperty(errorType)) {
-                            document.getElementsByName(field)[0].parentNode.insertAdjacentHTML("beforebegin",
-                                `<small class="errors text-color-red d-flex" style="font-size: 12px;">${errorMessages[errorType]}</small>`);
-                        }
-                    }
-                }
-            }
-        }
-    }, true);
-
-
 </script>
 </body>
 </html>
