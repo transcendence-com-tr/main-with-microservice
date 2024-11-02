@@ -77,7 +77,7 @@ function notification(state, title, message, closeable = true)
 
 function notificationTemplate(title, template, data = null)
 {
-    template = "pages/modals/" + template + ".html?v=345";
+    template = "pages/modals/" + template + ".html?v=350";
     document.getElementById('alertModalLabel').textContent = title;
     fetch(template).then(response => response.text()).then(item => {
         if (data)
