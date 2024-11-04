@@ -22,11 +22,12 @@ def register(request):
     password = data.get('password')
     validator = RegisterValidator({'username': username, 'email': email, 'password': password})
     status = validator.validate()
+    ## güncellendi 11/3/2024 13:26
+    errors = {}
+    user_errors = check_register_user(email, username)
+    if user_errors:
+            errors.update(user_errors)
     if status:
-        errors = check_register_user(email, username)
-        if errors:
-            return error_response("Register Error", "An error was encountered while registering", "error", 400, None,
-                                  errors)
         hashed_password = make_password(password)
         user = User.objects.create(
             username=username,
@@ -42,7 +43,7 @@ def register(request):
             "token": token
         }, None, True, "#/home")
     else:
-        errors = validator.get_message()
+        errors.update(validator.get_message())
         print(errors)
         return error_response("Register Error", "An error was encountered while registering", "error", 400, None,
                               errors)
@@ -118,25 +119,46 @@ def login_42_callback(request):
         'Authorization': f'Bearer {access_token}'
     }).json()
 
+    ## daha önce 42 ile giriş yapılmış ise direk token döndür home a yönlendir
     if (User.objects.filter(username_42=user_42.get('login')).exists()):
         user_id = User.objects.get(username_42=user_42.get('login')).id
         token = jwt.encode({
             "user_id": user_id,
             "iat": time.time(),
         }, settings.SECRET_KEY, algorithm='HS256')
+        print(token)
         print("42 login succeed")
         return success_response("42 Login Succeed", "Successfully logged in with 42", "success", 200, {'token': token}, None, True, "#/home")
     else:
-        user = User.objects.create(
-            username_42=user_42.get('login'),
-            email_42=user_42.get('email'),
-            password=make_password(get_random_string(length=32)),
-        )
-        user.save()
-        token = jwt.encode({
-            "user_id": user.id,
-        }, settings.SECRET_KEY, algorithm='HS256')
-        return success_response("42 Login Succeed", "Successfully logged in with 42", "success", 200, {'token': token}, None, True, "#/home")
+        ## güncellendi 10/3/2024
+        ## çakışma yok ise ve ilk defa giriyor ise tüm atamaları yap home'a yönlendir 
+        if (not User.objects.filter(username=user_42.get('login')).exists() and not User.objects.filter(email=user_42.get('email')).exists()):
+            user = User.objects.create(
+                username_42=user_42.get('login'),
+                email_42=user_42.get('email'),
+                username=user_42.get('login'),
+                email=user_42.get('email'),
+                password=make_password(get_random_string(length=32)),
+            )
+            token = jwt.encode({
+                "user_id": user.id,
+            }, settings.SECRET_KEY, algorithm='HS256')
+            print(token)
+            user.save()
+            return success_response("42 Login Succeed", "Successfully logged in with 42", "success", 200, {'token': token}, None, True, "#/home")
+        else:
+        ## çakışma var ise ve ilk defa giriyor ise atamasını yap auth'a yönlendir 
+            user = User.objects.create(
+                username_42=user_42.get('login'),
+                email_42=user_42.get('email'),
+                password=make_password(get_random_string(length=32)),
+            )
+            user.save()
+            token = jwt.encode({
+                "user_id": user.id,
+            }, settings.SECRET_KEY, algorithm='HS256')
+            print(token)
+            return success_response("42 Login Succeed", "Successfully logged in with 42", "success", 200, {'token': token}, None, True, "#/home")
 
 @api_view(['PUT'])
 def auth(request):
@@ -146,40 +168,76 @@ def auth(request):
     username = data.get('username')
     password = data.get('password')
 
-    ## en son eklenen ! 
+    ## güncellendi 11/3/2024
+    ## intra ile giriş varsa ve çakışma var ise;
     if not request.user.email and not request.user.username:
-        validator = PasswordResetValidator({'password': password})
+        errors = {}
+        validator = RegisterValidator({'username': username, 'email': email, 'password': password})
+        if email or username:
+            user_errors = check_register_user(email, username)
+            if user_errors:
+                errors.update(user_errors)
         status = validator.validate()
-        if not status:
-            errors = validator.get_message()
-            print(errors)
+        if status and not errors:
+            hashed_password = make_password(password)
+            User.objects.filter(id=request.user.id).update(email=email, password=hashed_password, username=username)
+            return success_response("Update Succeed", "User successfully updated", "success", 200, None, None, True, "#/home")
+        elif not status:
+            errors.update(validator.get_message())
             return error_response("Update Error", "An error was encountered while updating", "error", 400, None, errors, False)
-    
-    if not email and not username:
-        return error_response("Update Error", "At least one field must be provided", "error", 400, None, None, False, None)
 
-    validator  = UpdateUserValidator({'email': email , 'username': username})
+    ## edit page (kontrol edilmedi)
+    else:
+        if not email and not username:
+            return error_response("Update Error", "At least one field required", "error", 400, None, None, True, None)
+        errors = {}
+        user_errors = check_register_user(email, username)
+        if user_errors:
+            errors.update(user_errors)
+        validator = UpdateUserValidator({'email': email, 'username': username})
+        status = validator.validate()
+        if status and not errors:
+            if email and not User.objects.filter(email=email).exists():
+                User.objects.filter(id=request.user.id).update(email=email)
+            if username and not User.objects.filter(username=username).exists():
+                User.objects.filter(id=request.user.id).update(username=username)
+            return success_response("Update Succeed", "User successfully updated", "success", 200, None, None, True, "#/home")
+        else:
+            errors.update(validator.get_message())
+            return error_response("Update Error", "An error was encountered while updating", "error", 400, None, errors, False)
+
+### test'i yapılacak
+@api_view(['PUT'])
+@permission_classes([AllowAny])
+def connect_42(request):
+    data = request.data
+    email_or_username = data.get('email_or_username').strip()
+    password = data.get('password')
+    validator = LoginValidator({'email_or_username': email_or_username, 'password': password})
     status = validator.validate()
     if status:
-            errors = check_register_user(email, username)
-            if errors:
-                return error_response("Update Error", "An error was encountered while updating", "error", 400, None, errors, False)
-
-            if email and not User.objects.filter(email=email).exists():
-                User.objects.filter(email=request.user.email).update(email=email)
-            if username and not User.objects.filter(username=username).exists():
-                User.objects.filter(username=request.user.username).update(username=username)
-            
-            ## en son eklenen ! 
-            if not request.user.email and not request.user.username:
-                hashed_password = make_password(password)
-                User.objects.filter(id=request.user.id).update(password=hashed_password)
-                
-            return success_response("Update Succeed", "User successfully updated", "success", 200, None, None, True, "#/home")    
+        errors = check_login_user(email_or_username, password)
+        if errors:
+            return error_response("Login Error", "An error was encountered while logging in", "error", 400, None,
+                                  errors)
+        else:
+            try:
+                user = User.objects.get(email=email_or_username)
+            except User.DoesNotExist:
+                user = User.objects.get(username=email_or_username)
+            User.objects.filter(id=user.id).update(username_42=request.user.username_42, email_42=request.user.email_42)
+            User.objects.filter(id=request.user.id).delete()
+            token = jwt.encode({
+                "user_id": user.id,
+            }, settings.SECRET_KEY, algorithm='HS256')
+            return success_response("42 Connect Succeed", "Successfully connected to 42", "success", 200, {'token':token}, None, True, "#/home")       
     else:
         errors = validator.get_message()
         print(errors)
-        return error_response("Update Error", "An error was encountered while updating", "error", 400, None, errors, False)
+        return error_response("Login Error", "An error was encountered while logging in",
+                              "error", 400, None, errors)
+
+
 
 
 @api_view(['POST'])
@@ -192,7 +250,7 @@ def two_factor(request):
         "user_id": request.user.id,
         'verify_code': str(verify_code),
         ## 10 dakika expire time
-        "exp": time.time() + 600
+        "exp": settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME']
     }, settings.SECRET_KEY, algorithm='HS256')
 
     email = request.user.email
@@ -221,7 +279,7 @@ def two_factor_verify(request):
         token = jwt.encode({
             "user_id": request.user.id,
             ## one month expire time
-            "exp": time.time() + 2592000
+            "exp": settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME']
         }, settings.SECRET_KEY, algorithm='HS256')
         return success_response("Verification Succeed", "Verification succeed", "success", 200, {
             "token": token
@@ -254,7 +312,7 @@ def password_forgot(request):
                 "user_id": request.user.id,
                 'password_code': str(password_code),
                 ## 10 dakika expire time
-                "exp": time.time() + 600
+                "exp": settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME']
             }, settings.SECRET_KEY, algorithm='HS256')
             send_mail(
                 'Reset Password',
@@ -294,7 +352,7 @@ def password_reset(request):
             token = jwt.encode({
                 "user_id": request.user.id,
                 ## one month expire time
-                "exp": time.time() + 2592000
+                "exp": settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME']
             }, settings.SECRET_KEY, algorithm='HS256')
             return success_response("Password Reset Succeed", "Password reset succeed", "success", 200, {
                 "token": token}, None, True, "#/home")
@@ -307,3 +365,22 @@ def password_reset(request):
         return error_response("Password Reset Error", "An error was encountered while resetting password", "error", 400, None, errors)
 
 
+
+
+
+"""   ## en son eklenen ! 
+    if not request.user.email and not request.user.username:
+        validator = PasswordResetValidator({'password': password})
+        status = validator.validate()
+        if not status:
+            errors = validator.get_message()
+            print(errors)
+            return error_response("Update Error", "An error was encountered while updating", "error", 400, None, errors, False) """
+        
+"""
+            ## en son eklenen ! 
+            if not request.user.email and not request.user.username:
+                hashed_password = make_password(password)
+                User.objects.filter(id=request.user.id).update(password=hashed_password)
+
+"""

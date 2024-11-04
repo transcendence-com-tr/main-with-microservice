@@ -45,8 +45,9 @@ class UpdateUserValidator(Validator):
         'username': {
             'username': "Username not proper format",
             'max_length': "Username length must be less than 255"
-        }
+        },
     }
+
 
 class PasswordResetValidator(Validator):
     password = 'required|password:high|max_length:255'
